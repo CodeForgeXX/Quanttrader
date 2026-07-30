@@ -1,0 +1,1 @@
+This folder stores market data and backtest results.
