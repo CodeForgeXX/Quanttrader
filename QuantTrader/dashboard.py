@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 def load_css():
     css_path = os.path.join(
-        os.path.dirname(os.path.abspath(file)),
+        os.path.dirname(os.path.abspath(__file__)),
         "assets",
         "styles.css",
     )
