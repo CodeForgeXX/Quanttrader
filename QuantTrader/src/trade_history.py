@@ -2,7 +2,8 @@ import os
 import pandas as pd
 from datetime import datetime
 
-FILE_PATH = "data/trades.csv"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(file)))
+FILE_PATH = os.path.join(BASE_DIR, "data", "trades.csv")
 MAX_ROWS = 500
 
 
