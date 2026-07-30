@@ -4,7 +4,12 @@ import os
 import pandas as pd
 import streamlit as st
 def load_css():
-    with open("assets/styles.css") as f:
+    css_path = os.path.join(
+        os.path.dirname(os.path.abspath(file)),
+        "assets",
+        "styles.css",
+    )
+    with open(css_path) as f:
         st.markdown(
             f"<style>{f.read()}</style>",
             unsafe_allow_html=True,
@@ -15,6 +20,7 @@ load_css()
 from config.settings import VERSION
 from src.dashboard_data import get_dashboard_data, get_klines
 from src.charts import create_candlestick
+from src.trade_history import FILE_PATH as TRADES_FILE_PATH
 
 st.set_page_config(
     page_title="QuantTrader",
@@ -152,8 +158,8 @@ if st.button("▶ Run Backtest"):
 
     st.success(f"Net Profit : {result['Profit']}")
 
-if os.path.exists("data/trades.csv"):
-    history = pd.read_csv("data/trades.csv")
+if os.path.exists(TRADES_FILE_PATH):
+    history = pd.read_csv(TRADES_FILE_PATH)
     st.dataframe(
         history.tail(20),
         width="stretch",
