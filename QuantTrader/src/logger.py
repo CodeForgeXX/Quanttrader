@@ -6,7 +6,7 @@ LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
 
 logging.basicConfig(
-    filename=os.path.join(LOG_DIR, "quanttrader.log"),
+    __file__name=os.path.join(LOG_DIR, "quanttrader.log"),
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
