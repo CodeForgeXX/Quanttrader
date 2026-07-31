@@ -6,13 +6,33 @@ BASE_URL = "https://data-api.binance.vision/api/v3"
 REQUEST_TIMEOUT = 10
 DEFAULT_INTERVAL = "15m"
 DEFAULT_LIMIT = 500
+
+# لیست هماهنگ‌شده با ربات تلگرام (بعضی نمادهای خاص مثل LIGHTER/HYPE ممکنه
+# روی Binance موجود نباشن؛ در اون صورت داشبورد فقط همون یکی رو رد می‌کنه)
 SYMBOLS = [
     "BTCUSDT",
     "ETHUSDT",
+    "PAXGUSDT",
+    "HYPEUSDT",
+    "LIGHTERUSDT",
+    "ZECUSDT",
     "BNBUSDT",
     "SOLUSDT",
     "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "LINKUSDT",
+    "AVAXUSDT",
+    "DOTUSDT",
+    "LTCUSDT",
+    "TRXUSDT",
+    "SUIUSDT",
+    "TONUSDT",
+    "NEARUSDT",
+    "ARBUSDT",
+    "OPUSDT",
 ]
+
 TIMEFRAMES = [
     "5m",
     "15m",
