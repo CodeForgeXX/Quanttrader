@@ -1,4 +1,5 @@
 from src.providers import BinanceProvider
+from src.providers.lighter import LighterProvider
 
 
 class ExchangeManager:
@@ -6,11 +7,11 @@ class ExchangeManager:
     مدیریت اتصال به صرافی‌ها
     """
 
-    def __init__(self, provider="binance"):
-
+    def __init__(self, provider="lighter"):
         if provider.lower() == "binance":
             self.provider = BinanceProvider()
-
+        elif provider.lower() == "lighter":
+            self.provider = LighterProvider()
         else:
             raise ValueError(
                 f"Provider '{provider}' is not supported."
