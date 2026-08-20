@@ -3,7 +3,6 @@ import streamlit as st
 
 
 from config.settings import (
-    SYMBOLS,
     SMA_PERIOD,
     EMA_PERIOD,
     RSI_PERIOD,
@@ -11,7 +10,7 @@ from config.settings import (
     RISK_PERCENT,
 )
 
-from src.market import get_klines as _get_klines
+from src.market import get_klines as _get_klines, get_symbols
 from src.indicators import sma, ema, rsi, macd, trend
 from src.strategy import trading_signal, macd_signal
 from src.trade_history import save_trade
@@ -20,11 +19,24 @@ from src.risk import calculate_position_size
 
 @st.cache_data(ttl=25, show_spinner=False)
 def get_klines(symbol):
-    """Cached wrapper around the raw Binance fetch so repeated
+    """Cached wrapper around the raw fetch so repeated
     auto-refresh cycles (and the chart re-fetch for the selected coin)
     don't all hit the network separately within the same refresh
     window."""
     return _get_klines(symbol)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_all_symbols():
+    """
+    لیست کامل نمادهای فعال رو از صرافی می‌گیره (کریپتو + سهام + کالاها روی Lighter).
+    برای ۵ دقیقه کش می‌شه تا هر رفرش صفحه، درخواست جدید به لیست بازارها نزنه.
+    """
+    try:
+        return get_symbols()
+    except Exception as e:
+        print(f"ERROR fetching symbol list: {e}")
+        return []
 
 
 def get_dashboard_data():
@@ -35,7 +47,9 @@ def get_dashboard_data():
     sell_count = 0
     hold_count = 0
 
-    for symbol in SYMBOLS:
+    symbols = get_all_symbols()
+
+    for symbol in symbols:
 
         try:
 
@@ -95,14 +109,14 @@ def get_dashboard_data():
 
             else:
 
-                stop = "-"
-                tp1 = "-"
-                tp2 = "-"
-                tp3 = "-"
+                stop = None
+                tp1 = None
+                tp2 = None
+                tp3 = None
 
-            risk_reward = "-"
+            risk_reward = None
 
-            if stop != "-" and tp1 != "-":
+            if stop is not None and tp1 is not None:
 
                 try:
 
@@ -113,13 +127,13 @@ def get_dashboard_data():
                         risk_reward = round(reward / risk, 2)
 
                 except Exception:
-                    risk_reward = "-"
+                    risk_reward = None
 
             # ==========================
             # Risk Management
             # ==========================
 
-            if stop != "-":
+            if stop is not None:
 
                 risk_info = calculate_position_size(
     balance=ACCOUNT_BALANCE,
@@ -133,8 +147,8 @@ def get_dashboard_data():
 
             else:
 
-                position_size = "-"
-                risk_amount = "-"
+                position_size = None
+                risk_amount = None
 
             # ==========================
 
@@ -163,7 +177,7 @@ def get_dashboard_data():
                     "EMA": round(ema20, 2),
                     "EMA50": round(ema50, 2),
                     "EMA200": round(ema200, 2),
-"RSI": round(rsi14, 2),
+                    "RSI": round(rsi14, 2),
                     "Trend": trend(price, ema20),
                     "MACD": macd_signal(macd_value, signal_value),
                     "Score": score,
