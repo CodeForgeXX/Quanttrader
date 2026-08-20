@@ -28,3 +28,6 @@ class ExchangeManager:
             interval=interval,
             limit=limit,
         )
+
+    def get_symbols(self):
+        return self.provider.get_symbols()
