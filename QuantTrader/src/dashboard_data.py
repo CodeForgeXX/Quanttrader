@@ -3,6 +3,7 @@ import streamlit as st
 
 
 from config.settings import (
+    SYMBOLS,
     SMA_PERIOD,
     EMA_PERIOD,
     RSI_PERIOD,
@@ -10,7 +11,7 @@ from config.settings import (
     RISK_PERCENT,
 )
 
-from src.market import get_klines as _get_klines, get_symbols
+from src.market import get_klines as _get_klines
 from src.indicators import sma, ema, rsi, macd, trend
 from src.strategy import trading_signal, macd_signal
 from src.trade_history import save_trade
@@ -26,19 +27,6 @@ def get_klines(symbol):
     return _get_klines(symbol)
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def get_all_symbols():
-    """
-    لیست کامل نمادهای فعال رو از صرافی می‌گیره (کریپتو + سهام + کالاها روی Lighter).
-    برای ۵ دقیقه کش می‌شه تا هر رفرش صفحه، درخواست جدید به لیست بازارها نزنه.
-    """
-    try:
-        return get_symbols()
-    except Exception as e:
-        print(f"ERROR fetching symbol list: {e}")
-        return []
-
-
 def get_dashboard_data():
 
     rows = []
@@ -47,9 +35,7 @@ def get_dashboard_data():
     sell_count = 0
     hold_count = 0
 
-    symbols = get_all_symbols()
-
-    for symbol in symbols:
+    for symbol in SYMBOLS:
 
         try:
 
