@@ -7,47 +7,74 @@ REQUEST_TIMEOUT = 10
 DEFAULT_INTERVAL = "15m"
 DEFAULT_LIMIT = 500
 
-# لیست منتخب: بهترین‌های بازار RWA (سهام بزرگ، شاخص‌ها، کالاها) + چند کریپتوی اصلی روی Lighter
+# لیست منتخب: عمدتاً سهام/کالا/شاخص آمریکا (RWA) + فقط سه کریپتوی اصلی
 SYMBOLS = [
-    # --- سهام بزرگ آمریکا ---
-    "AAPL",   # اپل
-    "MSFT",   # مایکروسافت
-    "GOOGL",  # گوگل
-    "AMZN",   # آمازون
-    "NVDA",   # انویدیا
-    "TSLA",   # تسلا
-    "META",   # متا
-    "AVGO",   # Broadcom
-    "TSM",    # TSMC
-    "ORCL",   # اوراکل
-    "IBM",
-    "AMD",
-    "QCOM",   # کوالکام
-    "COIN",   # Coinbase
-    "HOOD",   # Robinhood
-    "PLTR",   # Palantir
-    "MSTR",   # MicroStrategy
-    "BABA",   # علی‌بابا
-
-    # --- شاخص‌های آمریکا ---
-    "SPX",    # S&P 500
-    "QQQ",    # Nasdaq ETF
-
-    # --- کالاها ---
-    "XAU",    # طلا
-    "XAG",    # نقره
-    "WTI",    # نفت
-    "NATGAS", # گاز طبیعی
-
-    # --- کریپتوهای اصلی ---
+    # --- کریپتو (فقط ۳ تای اصلی) ---
     "BTC",
     "ETH",
-    "SOL",
-    "BNB",
-    "XRP",
-    "DOGE",
-    "ADA",
-    "AVAX",
+    "HYPE",
+
+    # --- سهام بزرگ تکنولوژی ---
+    "AAPL",
+    "MSFT",
+    "GOOGL",
+    "AMZN",
+    "NVDA",
+    "META",
+    "AVGO",
+    "TSM",
+    "ORCL",
+    "IBM",
+    "AMD",
+    "QCOM",
+    "DELL",
+    "INTC",
+    "ARM",
+    "ASML",
+    "MU",
+    "MRVL",
+    "NOW",
+
+    # --- خودرو / کریپتو-مرتبط / فین‌تک ---
+    "TSLA",
+    "COIN",
+    "HOOD",
+    "MSTR",
+    "BABA",
+
+    # --- شرکت‌های نوظهور / پرنوسان ---
+    "GME",
+    "RKLB",
+    "CRCL",
+    "CRWV",
+    "BB",
+    "BE",
+    "BIO",
+    "S",
+    "TTWO",
+    "PLTR",
+    "XIAOMI",
+    "TENCENT",
+    "ZHIPU",
+    "NBIS",
+    "GEV",
+    "CHIP",
+    "KIOXIA",
+
+    # --- شاخص‌های آمریکا ---
+    "SPX",
+    "QQQ",
+    "IWM",
+    "US100",
+
+    # --- کالاها ---
+    "XAU",
+    "XAG",
+    "WTI",
+    "BRENTOIL",
+    "NATGAS",
+    "XCU",
+    "WHEAT",
 ]
 
 TIMEFRAMES = [
