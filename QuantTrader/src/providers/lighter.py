@@ -1,8 +1,19 @@
 """
-Provider جدید برای گرفتن داده مستقیم از صرافی Lighter (به‌جای Binance).
-این فایل رو توی مسیر QuantTrader/src/providers/lighter.py ریپو اضافه کن.
+Provider برای گرفتن داده مستقیم از صرافی Lighter (به‌جای Binance).
 
-نیاز به نصب پکیج جدید توی requirements.txt همین ریپو: lighter-sdk
+این نسخه‌ی اصلاح‌شده‌ست - نسبت به نسخه‌ی اول این تغییرات انجام شده:
+  ۱. نرمال‌سازی نماد: به‌جای فقط strip کردن پسوند USDT/USDC/USD، از روی جداکننده‌ی
+     "/" یا "-" می‌بریم (دقیقاً همون فیکسی که برای ربات تلگرام هم انجام شد) - چون
+     نمادهایی مثل "AAVE/USDC" با روش قبلی به "AAVE/" (با اسلش باقیمونده) تبدیل
+     می‌شدن، نه "AAVE" تمیز.
+  ۲. فیلتر market_type == "perp" برداشته شد - چون مطمئن نیستیم سهام/فارکس/کالا هم
+     زیر همین market_type دسته‌بندی می‌شن یا نه؛ برای اینکه چیزی بی‌سروصدا از
+     دست نره، همه‌ی بازارهای فعال رو نگه می‌داریم (فقط status=="active" چک می‌شه).
+  ۳. مقاومت در برابر خطای موقت Lighter اضافه شد: هم "Too Many Requests" (نرخ
+     محدود) هم مسدودسازی موقت AWS WAF - هردو رو دیده بودیم موقع تست ربات تلگرام؛
+     الان چندبار با فاصله دوباره امتحان می‌شه قبل از تسلیم شدن.
+
+نیاز به نصب پکیج توی requirements.txt همین ریپو: lighter-sdk==1.1.2
 """
 
 import asyncio
@@ -25,6 +36,17 @@ STEP_SECONDS = {
     "1h": 3600, "4h": 14400, "1d": 86400,
 }
 
+_WAF_MARKERS = ("captcha", "awswaf", "javascript is disabled", "verify that you're not a robot")
+_RATE_LIMIT_MARKERS = ("too many requests", '"code":23000', "429")
+
+
+def _looks_like_waf_block(error) -> bool:
+    return any(m in str(error).lower() for m in _WAF_MARKERS)
+
+
+def _looks_like_rate_limit(error) -> bool:
+    return any(m in str(error).lower() for m in _RATE_LIMIT_MARKERS)
+
 
 class LighterProvider:
     """
@@ -40,12 +62,43 @@ class LighterProvider:
     # ---------- کمکی: نگاشت symbol -> market_index ----------
 
     def _normalize_symbol(self, symbol: str) -> str:
-        """'BTCUSDT' -> 'BTC' چون Lighter از فرمت بدون USDT استفاده می‌کنه."""
+        """
+        'AAVE/USDC' -> 'AAVE', 'ETH-USDC' -> 'ETH', ولی 'EURUSD'/'USDJPY' (فارکس
+        بدون جداکننده که خودشون کلمه USD توشونه) دست‌نخورده می‌مونن.
+        ⚠️ عمداً پسوند USDT/USDC/USD رو از نمادهای بدون جداکننده strip نمی‌کنیم -
+        چون طبق داده‌ی واقعی Lighter (که با ربات تلگرام تستش کردیم)، این صرافی
+        یا از جداکننده استفاده می‌کنه یا اصلاً پسوندی نداره؛ فرمت بایننسی مثل
+        "BTCUSDT" (بدون جداکننده) روی Lighter دیده نشده.
+        """
         base = symbol.upper()
-        for suffix in ("USDT", "USDC", "USD"):
-            if base.endswith(suffix) and len(base) > len(suffix):
-                return base[: -len(suffix)]
-        return base
+        import re
+        parts = re.split(r"[/\-]", base)
+        return parts[0].strip() if len(parts) > 1 else base
+
+    def _fetch_with_retry(self, fn, what: str, retries: int = 3):
+        """
+        fn یه تابع async بدون آرگومانه که باید صدا زده بشه. اگه خطای موقت (نرخ
+        محدود یا مسدودسازی AWS) بود، چندبار با فاصله دوباره امتحان می‌کنه.
+        """
+        last_error = None
+        for attempt in range(retries + 1):
+            try:
+                return asyncio.run(fn())
+            except Exception as e:
+                last_error = e
+                if _looks_like_rate_limit(e):
+                    delay = 20.0 * (attempt + 1)
+                    logger.warning(f"Lighter نرخ‌محدود کرده برای {what}، {delay:.0f}s صبر می‌کنیم...")
+                elif _looks_like_waf_block(e):
+                    delay = 10.0 * (2 ** attempt)
+                    logger.warning(f"Lighter موقتاً بلاک کرده برای {what}، {delay:.0f}s صبر می‌کنیم...")
+                else:
+                    # خطای دیگه (نه rate-limit نه WAF) - همون‌جا تسلیم می‌شیم، تکرار فایده نداره
+                    raise
+                if attempt < retries:
+                    time.sleep(delay)
+                    continue
+                raise last_error
 
     def _refresh_markets(self):
         async def _fetch():
@@ -55,17 +108,23 @@ class LighterProvider:
             await client.close()
             return resp
 
-        resp = asyncio.run(_fetch())
+        try:
+            resp = self._fetch_with_retry(_fetch, "لیست بازارها")
+        except Exception as e:
+            logger.error(f"گرفتن لیست بازارهای Lighter ناموفق بود: {e}")
+            return
+
         mapping = {}
         for book in resp.order_books:
-            if getattr(book, "market_type", "perp") != "perp":
-                continue
             if getattr(book, "status", "active") != "active":
                 continue
             symbol = getattr(book, "symbol", None)
             market_id = getattr(book, "market_id", None)
-            if symbol is not None and market_id is not None:
-                mapping[symbol.upper()] = market_id
+            if symbol is None or market_id is None:
+                continue
+            alias = self._normalize_symbol(symbol)
+            if alias:
+                mapping[alias] = market_id
 
         self._market_cache = mapping
         self._market_cache_time = time.time()
@@ -103,25 +162,28 @@ class LighterProvider:
             return resp
 
         try:
-            resp = asyncio.run(_fetch())
+            resp = self._fetch_with_retry(_fetch, f"کندل‌های {symbol}")
         except Exception as e:
             logger.error(f"Lighter request failed for {symbol}: {e}")
             return None
 
-        candles = getattr(resp, "c", None) or getattr(resp, "candles", None) or getattr(resp, "candlesticks", None)
+        candles = getattr(resp, "c", None)
         if not candles:
             logger.error(f"Lighter returned empty data for {symbol}")
             return None
 
         rows = []
-        for c in sorted(candles, key=lambda x: getattr(x, "timestamp", getattr(x, "t", 0))):
-            ts = getattr(c, "timestamp", getattr(c, "t", None))
-            o = getattr(c, "open", getattr(c, "o", None))
-            h = getattr(c, "high", getattr(c, "h", None))
-            l = getattr(c, "low", getattr(c, "l", None))
-            cl = getattr(c, "close", getattr(c, "c", None))
-            v = getattr(c, "volume0", getattr(c, "volume", getattr(c, "v", 0)))
-            rows.append([ts, o, h, l, cl, v])
+        for c in sorted(candles, key=lambda x: getattr(x, "t", 0)):
+            rows.append(
+                [
+                    getattr(c, "t", None),
+                    getattr(c, "o", None),
+                    getattr(c, "h", None),
+                    getattr(c, "l", None),
+                    getattr(c, "c", None),
+                    getattr(c, "v", 0),
+                ]
+            )
 
         df = pd.DataFrame(rows, columns=["Open Time", "Open", "High", "Low", "Close", "Volume"])
         df[["Open", "High", "Low", "Close", "Volume"]] = df[["Open", "High", "Low", "Close", "Volume"]].astype(float)
