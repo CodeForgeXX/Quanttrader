@@ -3,4 +3,4 @@ streamlit-autorefresh==1.0.1
 pandas==3.0.3
 plotly==6.8.0
 requests==2.34.2
-lighter-sdk
+lighter-sdk==1.1.2
