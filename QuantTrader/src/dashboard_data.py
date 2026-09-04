@@ -13,7 +13,8 @@ from config.settings import (
 
 from src.market import get_klines as _get_klines
 from src.indicators import sma, ema, rsi, macd, trend
-from src.strategy import trading_signal, macd_signal
+from src import signals
+from src import smc
 from src.trade_history import save_trade
 from src.risk import calculate_position_size
 
@@ -65,17 +66,43 @@ def get_dashboard_data():
             volume = df["Volume"].iloc[-1]
             avg_volume = df["Volume"].tail(20).mean()
 
-            score, signal, prob = trading_signal(
-                price,
-                ema20,
-                ema50,
-                ema200,
-                rsi14,
-                macd_value,
-                signal_value,
-                volume,
-                avg_volume,
+            # ==========================
+            # موتور ۱: اندیکاتورهای کلاسیک (EMA/RSI/MACD/حجم)
+            # ==========================
+
+            ema_score = signals.calculate_score(
+                price, ema20, ema50, ema200, rsi14, macd_value, signal_value, volume, avg_volume,
             )
+            ema_signal = signals.ema_signal_from_score(ema_score)
+            ema_prob = signals.probability(ema_score)
+
+            # ==========================
+            # موتور ۲: Smart Money Concepts (Structure/BOS/CHOCH/OB/FVG)
+            # ==========================
+
+            smc_result = smc.build_smc_analysis(
+                df["Open"].tolist(),
+                df["High"].tolist(),
+                df["Low"].tolist(),
+                closes.tolist(),
+                ema20, ema50, ema200,
+            )
+            smc_signal = signals.smc_signal_from_score(smc_result["score"])
+            smc_prob = signals.smc_probability(smc_result["score"])
+
+            # ==========================
+            # ترکیب نهایی - طبق تصمیم مشترک با ربات تلگرام: سیگنال فقط وقتی
+            # قوی/معتبره که هردو موتور موافق باشن، وگرنه محافظه‌کارانه HOLD.
+            # همین چیزیه که مشکل قدیمی "۱۰۰٪ می‌شه بعد یهو برعکس" رو حل می‌کنه.
+            # ==========================
+
+            final_signal, combined_prob, engines_agree = signals.combine_signals(
+                ema_signal, ema_prob, smc_signal, smc_prob,
+            )
+
+            signal = signals.signal_dict_to_string(final_signal)
+            score = combined_prob - 50  # مقیاس رتبه‌بندی: مثبت=صعودی، منفی=نزولی
+            prob = combined_prob
 
             entry = round(price, 2)
 
@@ -122,11 +149,11 @@ def get_dashboard_data():
             if stop is not None:
 
                 risk_info = calculate_position_size(
-    balance=ACCOUNT_BALANCE,
-    risk_percent=RISK_PERCENT,
-    entry=entry,
-    stop=stop,
-)
+                    balance=ACCOUNT_BALANCE,
+                    risk_percent=RISK_PERCENT,
+                    entry=entry,
+                    stop=stop,
+                )
 
                 position_size = risk_info["position_size"]
                 risk_amount = risk_info["risk_amount"]
@@ -165,10 +192,11 @@ def get_dashboard_data():
                     "EMA200": round(ema200, 2),
                     "RSI": round(rsi14, 2),
                     "Trend": trend(price, ema20),
-                    "MACD": macd_signal(macd_value, signal_value),
+                    "MACD": macd_signal_label(macd_value, signal_value),
                     "Score": score,
                     "Probability": f"{prob}%",
                     "Signal": signal,
+                    "Agree": "✅" if engines_agree else "—",
                     "Entry": entry,
                     "Stop": stop,
                     "TP1": tp1,
@@ -193,3 +221,11 @@ def get_dashboard_data():
     }
 
     return table, stats
+
+
+def macd_signal_label(macd_line, signal_line):
+    if macd_line > signal_line:
+        return "🟢 Bullish"
+    elif macd_line < signal_line:
+        return "🔴 Bearish"
+    return "🟡 Neutral"
