@@ -21,6 +21,27 @@ from src.trade_history import save_trade
 from src.risk import calculate_position_size
 
 
+def _smart_round(value, price):
+    """
+    گرد کردن هوشمند بر اساس بزرگی خودِ قیمت - نه همیشه ۲ رقم اعشار ثابت.
+    برای دارایی‌های ارزون (مثلاً یه توکن ۰.۰۶ دلاری) با ۲ رقم اعشار، Stop و
+    TP1/TP2/TP3 همه به همون عدد گرد می‌شدن (چون تفاوت‌شون کوچیک‌تر از ۰.۰۱ بود)
+    و عملاً بی‌فایده می‌شدن - این تابع رقم اعشار رو متناسب با قیمت انتخاب می‌کنه.
+    """
+    if value is None:
+        return None
+    abs_price = abs(price) if price else 0
+    if abs_price >= 1:
+        decimals = 2
+    elif abs_price >= 0.01:
+        decimals = 4
+    elif abs_price >= 0.0001:
+        decimals = 6
+    else:
+        decimals = 8
+    return round(value, decimals)
+
+
 @st.cache_data(ttl=25, show_spinner=False)
 def get_klines(symbol):
     """Cached wrapper around the raw fetch so repeated
@@ -106,21 +127,21 @@ def get_dashboard_data():
             score = combined_prob - 50  # مقیاس رتبه‌بندی: مثبت=صعودی، منفی=نزولی
             prob = combined_prob
 
-            entry = round(price, 2)
+            entry = _smart_round(price, price)
 
             if "BUY" in signal.upper():
 
-                stop = round(price * 0.985, 2)
-                tp1 = round(price * 1.015, 2)
-                tp2 = round(price * 1.03, 2)
-                tp3 = round(price * 1.05, 2)
+                stop = _smart_round(price * 0.985, price)
+                tp1 = _smart_round(price * 1.015, price)
+                tp2 = _smart_round(price * 1.03, price)
+                tp3 = _smart_round(price * 1.05, price)
 
             elif "SELL" in signal.upper():
 
-                stop = round(price * 1.015, 2)
-                tp1 = round(price * 0.985, 2)
-                tp2 = round(price * 0.97, 2)
-                tp3 = round(price * 0.95, 2)
+                stop = _smart_round(price * 1.015, price)
+                tp1 = _smart_round(price * 0.985, price)
+                tp2 = _smart_round(price * 0.97, price)
+                tp3 = _smart_round(price * 0.95, price)
 
             else:
 
@@ -178,7 +199,7 @@ def get_dashboard_data():
 
             save_trade(
                 symbol,
-                round(price, 2),
+                _smart_round(price, price),
                 signal,
                 score,
                 prob,
@@ -187,11 +208,11 @@ def get_dashboard_data():
             rows.append(
                 {
                     "Coin": symbol,
-                    "Price": round(price, 2),
-                    "SMA": round(sma20, 2),
-                    "EMA": round(ema20, 2),
-                    "EMA50": round(ema50, 2),
-                    "EMA200": round(ema200, 2),
+                    "Price": _smart_round(price, price),
+                    "SMA": _smart_round(sma20, price),
+                    "EMA": _smart_round(ema20, price),
+                    "EMA50": _smart_round(ema50, price),
+                    "EMA200": _smart_round(ema200, price),
                     "RSI": round(rsi14, 2),
                     "Trend": trend(price, ema20),
                     "MACD": macd_signal_label(macd_value, signal_value),
